@@ -97,7 +97,6 @@ class MuscleModel(Model):
             self.grid.place_agent(muscle_fiber, (x, y))
             self.schedule.add(muscle_fiber)
 
-
         self.datacollector = DataCollector(
             model_reporters={"Muscle Mass": self.get_muscle_mass,
                              "Anabolic Hormone": self.get_anabolic_hormone_mean,
@@ -170,16 +169,20 @@ timestamp = time.strftime("%Y%m%d%H%M%S")
 # 创建模型
 model = MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers)
 
+
 # 并行执行模拟
 def run_simulation_parallel(model_instance_steps):
     model_instance, steps = model_instance_steps
     return model_instance.run_simulation(steps)
 
+
 if __name__ == "__main__":
     start_time = time.time()
 
     # 创建模型实例列表
-    model_instances = [(MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _ in range(32)]
+    model_instances = [
+        (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _
+        in range(32)]
 
     # 使用32进程并行执行模拟
     with multiprocessing.Pool() as pool:
@@ -188,6 +191,11 @@ if __name__ == "__main__":
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Simulation completed in {elapsed_time} seconds")
+
+    # 生成输出文件
+    for i, result in enumerate(results):
+        file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}_{i}.csv"
+        result.to_csv(file_name)
 
     # 合并多个模拟的结果
     merged_result = pd.concat(results)
