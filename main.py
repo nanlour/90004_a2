@@ -55,6 +55,15 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
+    def get_muscle_mass(model):
+        return model.muscle_mass
+
+    def get_anabolic_hormone_mean(agent):
+        return agent.anabolic_hormone_mean
+
+    def get_catabolic_hormone_mean(agent):
+        return agent.catabolic_hormone_mean
+
     def __init__(self, width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers):
         super().__init__()
         self.schedule = RandomActivation(self)
@@ -84,19 +93,11 @@ class MuscleModel(Model):
             self.grid.place_agent(muscle_fiber, (x, y))
             self.schedule.add(muscle_fiber)
 
-        def get_muscle_mass(model):
-            return model.muscle_mass
-
-        def get_anabolic_hormone_mean(agent):
-            return agent.anabolic_hormone_mean
-
-        def get_catabolic_hormone_mean(agent):
-            return agent.catabolic_hormone_mean
 
         self.datacollector = DataCollector(
-            model_reporters={"Muscle Mass": get_muscle_mass,
-                             "Anabolic Hormone": get_anabolic_hormone_mean,
-                             "Catabolic Hormone": get_catabolic_hormone_mean}
+            model_reporters={"Muscle Mass": self.get_muscle_mass,
+                             "Anabolic Hormone": self.get_anabolic_hormone_mean,
+                             "Catabolic Hormone": self.get_catabolic_hormone_mean}
         )
 
     def __diffuse(self):
@@ -157,7 +158,7 @@ intensity = 95
 hours_of_sleep = 8
 days_between_workouts = 2
 slow_twitch_fibers = 0.5
-steps = 10000  # 模拟步数
+steps = 100  # 模拟步数
 
 # 模拟时间戳
 timestamp = time.strftime("%Y%m%d%H%M%S")
