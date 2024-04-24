@@ -6,6 +6,7 @@ from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
 import time
+import multiprocessing
 
 
 class MuscleFiber(Agent):
@@ -134,6 +135,11 @@ class MuscleModel(Model):
 
         self.schedule.step()
 
+    def run_simulation(self, steps):
+        for _ in range(steps):
+            self.step()
+        return self.datacollector.get_model_vars_dataframe()
+
 
 # 模型参数
 width = 17
@@ -142,6 +148,7 @@ intensity = 95
 hours_of_sleep = 8
 days_between_workouts = 2
 slow_twitch_fibers = 0.5
+steps = 10000  # 模拟步数
 
 # 模拟时间戳
 timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -149,11 +156,21 @@ timestamp = time.strftime("%Y%m%d%H%M%S")
 # 创建模型
 model = MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers)
 
-# 运行模拟
-for i in range(100):
-    model.step()
+# 并行执行模拟
+def run_simulation_parallel(model, steps):
+    return model.run_simulation(steps)
 
-# 生成输出文件
-model_data = model.datacollector.get_model_vars_dataframe()
-file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_{timestamp}.csv"
-model_data.to_csv(file_name)
+if __name__ == "__main__":
+    start_time = time.time()
+
+    # 使用多进程并行执行模拟
+    with multiprocessing.Pool() as pool:
+        result = pool.apply(run_simulation_parallel, args=(model, steps))
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Simulation completed in {elapsed_time} seconds")
+
+    # 生成输出文件
+    file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}.csv"
+    result.to_csv(file_name)
