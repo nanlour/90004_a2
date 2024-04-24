@@ -1,5 +1,7 @@
 import math
 import random
+
+import numpy as np
 import pandas as pd
 from mesa import Agent, Model
 from mesa.space import MultiGrid
@@ -7,6 +9,7 @@ from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
 import time
 import multiprocessing
+from scipy.optimize import curve_fit
 
 
 class MuscleFiber(Agent):
@@ -158,7 +161,7 @@ intensity = 95
 hours_of_sleep = 8
 days_between_workouts = 2
 slow_twitch_fibers = 0.5
-steps = 100  # 模拟步数
+steps = 1000  # 模拟步数
 
 # 模拟时间戳
 timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -167,20 +170,56 @@ timestamp = time.strftime("%Y%m%d%H%M%S")
 model = MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers)
 
 # 并行执行模拟
-def run_simulation_parallel(model, steps):
-    return model.run_simulation(steps)
+def run_simulation_parallel(model_instance_steps):
+    model_instance, steps = model_instance_steps
+    return model_instance.run_simulation(steps)
 
 if __name__ == "__main__":
     start_time = time.time()
 
-    # 使用多进程并行执行模拟
+    # 创建模型实例列表
+    model_instances = [(MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _ in range(32)]
+
+    # 使用32进程并行执行模拟
     with multiprocessing.Pool() as pool:
-        result = pool.apply(run_simulation_parallel, args=(model, steps))
+        results = pool.map(run_simulation_parallel, model_instances)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Simulation completed in {elapsed_time} seconds")
 
     # 生成输出文件
-    file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}.csv"
-    result.to_csv(file_name)
+    for i, result in enumerate(results):
+        file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}_{i}.csv"
+        result.to_csv(file_name)
+
+    # 合并多个模拟的结果
+    merged_result = pd.concat(results)
+
+    # 去除极端值
+    # 此处您可以根据需要进行调整，比如使用标准差或其他方法来检测和移除极端值
+    merged_result = merged_result[(
+                np.abs(merged_result['Muscle Mass'] - merged_result['Muscle Mass'].mean()) < 3 * merged_result[
+            'Muscle Mass'].std())]
+
+
+    # 曲线拟合
+    def func(x, a, b, c):
+        return a * np.exp(-b * x) + c
+
+
+    popt, _ = curve_fit(func, merged_result.index, merged_result['Muscle Mass'])
+
+    # 生成拟合曲线的数据
+    fit_x = np.linspace(merged_result.index.min(), merged_result.index.max(), 1000)
+    fit_y = func(fit_x, *popt)
+
+    # 绘制拟合曲线
+    import matplotlib.pyplot as plt
+
+    plt.plot(merged_result.index, merged_result['Muscle Mass'], 'b.', label='Data')
+    plt.plot(fit_x, fit_y, 'r-', label='Fit')
+    plt.xlabel('Time')
+    plt.ylabel('Muscle Mass')
+    plt.legend()
+    plt.show()
