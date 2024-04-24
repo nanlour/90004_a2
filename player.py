@@ -72,7 +72,8 @@ if latest_model_data_file:
         return line, tangent_line, slope_text
 
     # 创建动画对象
-    ani = FuncAnimation(fig, update, frames=len(model_data), init_func=init, blit=True)
+    interval_ms = 5  # 设置播放速度为100毫秒
+    ani = FuncAnimation(fig, update, frames=len(model_data), init_func=init, blit=True, interval=interval_ms)
 
     # 设置播放窗口标题为当前播放文件名
     plt.get_current_fig_manager().set_window_title(latest_model_data_file)
