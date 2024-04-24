@@ -15,6 +15,23 @@ def find_latest_model_data():
     else:
         return None
 
+# 计算切线斜率
+def calculate_slope(x_data, y_data, i):
+    if i == 0:
+        return 0  # 初始点，斜率为0
+    else:
+        delta_x = x_data[i] - x_data[i-1]
+        delta_y = y_data[i] - y_data[i-1]
+        return delta_y / delta_x
+
+# 计算切线端点
+def calculate_tangent_endpoints(x_data, y_data, i, slope, x_step_ratio):
+    x = x_data[i]
+    y = y_data[i]
+    delta_x = (x_data[-1] - x_data[0]) * x_step_ratio
+    delta_y = slope * delta_x
+    return (x - delta_x, y - delta_y), (x + delta_x, y + delta_y)
+
 # 从最新的模型数据文件中加载数据
 latest_model_data_file = find_latest_model_data()
 if latest_model_data_file:
@@ -23,6 +40,8 @@ if latest_model_data_file:
     # 创建一个图形对象
     fig, ax = plt.subplots()
     line, = ax.plot([], [], lw=2)
+    tangent_line, = ax.plot([], [], lw=1, color='red')  # 切线段
+    slope_text = ax.text(0.02, 0.95, '', transform=ax.transAxes)  # 显示斜率的文本框
     ax.set_xlim(0, len(model_data))
     ax.set_ylim(model_data.min().min(), model_data.max().max())
     ax.set_xlabel('Time Step')
@@ -31,7 +50,9 @@ if latest_model_data_file:
     # 初始化函数，用于绘制空图形
     def init():
         line.set_data([], [])
-        return line,
+        tangent_line.set_data([], [])
+        slope_text.set_text('')
+        return line, tangent_line, slope_text
 
     # 更新函数，用于更新图形内容
     def update(i):
@@ -39,9 +60,16 @@ if latest_model_data_file:
         x_data = range(i + 1)
         # 获取对应的 y 数据
         y_data = model_data.iloc[:i + 1]['Muscle Mass']
+        # 计算切线斜率
+        slope = calculate_slope(x_data, y_data, i)
+        # 计算切线端点，确保切线跨越横坐标的十分之一
+        x_step_ratio = 0.4
+        start_point, end_point = calculate_tangent_endpoints(x_data, y_data, i, slope, x_step_ratio)
         # 更新图形内容
         line.set_data(x_data, y_data)
-        return line,
+        tangent_line.set_data([start_point[0], end_point[0]], [start_point[1], end_point[1]])
+        slope_text.set_text(f'Slope: {slope:.2f}')  # 显示斜率
+        return line, tangent_line, slope_text
 
     # 创建动画对象
     ani = FuncAnimation(fig, update, frames=len(model_data), init_func=init, blit=True)
