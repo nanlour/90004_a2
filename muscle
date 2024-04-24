@@ -1,0 +1,151 @@
+breed [ muscle-fibers muscle-fiber ]
+
+muscle-fibers-own [
+  fiber-size   ;; different from built-in "size" because it uses different units
+  max-size
+]
+
+patches-own [
+  anabolic-hormone  ;; muscle building hormone
+  catabolic-hormone ;; muscle breaking down hormone
+]
+
+globals [
+  muscle-mass  ;; stores sum of muscle-fiber sizes
+  ;; hormone bounds to ensure a realistic environment
+  anabolic-hormone-max
+  anabolic-hormone-min
+  catabolic-hormone-max
+  catabolic-hormone-min
+  ;; the rate at which hormones from one fiber diffuse to others
+  hormone-diffuse-rate
+]
+
+to setup
+  clear-all
+  set-default-shape muscle-fibers "circle"
+  initialize-hormones
+  new-muscle-fibers
+  set muscle-mass sum [fiber-size] of muscle-fibers
+  reset-ticks
+end
+
+to initialize-hormones
+  ;; constants chosen align the model time frame for muscle development
+  ;; with realistic values
+  set hormone-diffuse-rate 0.75
+  ask patches [
+    set anabolic-hormone-max 200
+    set catabolic-hormone-max 250
+    set anabolic-hormone-min 50
+    set catabolic-hormone-min 52
+    set anabolic-hormone 50
+    set catabolic-hormone 52
+  ]
+  regulate-hormones
+end
+
+to new-muscle-fibers
+  ask patches [
+    sprout-muscle-fibers 1 [
+      set max-size 4
+      ;; create a normalized distribution of maximum muscle fiber sizes
+      ;; with median dependent on % of slow twitch fibers.
+      repeat 20  [
+        if random-float 100 > %-slow-twitch-fibers [
+          set max-size max-size + 1
+        ]
+      ]
+      ;; provide non-uniform starting sizes for varied results, everyone's different
+      set fiber-size (0.2 + random-float 0.4) * max-size
+      regulate-muscle-fibers
+    ]
+  ]
+end
+
+to go
+  ;; note the use of the LOG primitive in the procedures called below
+  ;; to simulate a natural system's tendency to adapt less and less
+  ;; to each additional unit of some biological substance
+  perform-daily-activity
+  if lift? and (ticks mod days-between-workouts = 0)
+    [ lift-weights ]
+  sleep
+  regulate-hormones
+  develop-muscle
+  set muscle-mass sum [fiber-size] of muscle-fibers
+  tick
+end
+
+to perform-daily-activity
+  ;; simulate hormonal effect of lifestyle
+  ;; activities like watching TV and working
+  ask muscle-fibers [
+    set catabolic-hormone catabolic-hormone + 2.0 * (log fiber-size 10)
+    set anabolic-hormone anabolic-hormone + 2.5 * (log fiber-size 10)
+  ]
+end
+
+to lift-weights
+  ;; simulate hormonal effect of weight training
+  ask muscle-fibers [
+    if( random-float 1.0 < intensity / 100 * intensity / 100 ) [
+      set anabolic-hormone anabolic-hormone + (log fiber-size 10) * 55
+      set catabolic-hormone catabolic-hormone + (log fiber-size 10) * 44
+    ]
+  ]
+end
+
+to sleep
+  ;; simulate hormonal effect of sleeping
+  ask patches [
+    set catabolic-hormone catabolic-hormone - 0.5 * (log catabolic-hormone 10) * hours-of-sleep
+    set anabolic-hormone anabolic-hormone - 0.48 * (log anabolic-hormone 10) * hours-of-sleep
+  ]
+end
+
+to develop-muscle
+  ask muscle-fibers [
+    grow
+    regulate-muscle-fibers
+  ]
+end
+
+to grow  ;; turtle procedure
+  ;; catabolic hormones must prepare the fibers for growth before the
+  ;; anabolic hormones may add mass to the fibers
+  set fiber-size (fiber-size - 0.20 * (log catabolic-hormone 10))
+  set fiber-size (fiber-size + 0.20 * min (list (log anabolic-hormone 10)
+                                                (1.05 * log catabolic-hormone 10)))
+end
+
+to regulate-muscle-fibers ;;turtle procedure
+  ;; simulate the body's natural limits on minimum and maximum fiber sizes
+  if (fiber-size  < 1) [ set fiber-size 1 ]
+  if (fiber-size > max-size) [ set fiber-size max-size ]
+  set color scale-color red fiber-size (-0.5 * max-size) (3 * max-size)
+  ;; base the visible size of the turtle on its fiber-size
+  set size max list 0.2 (min list 1 (fiber-size / 20))
+end
+
+to regulate-hormones ;;patch procedure
+  ;; hormones spread to neighboring fibers
+  diffuse anabolic-hormone hormone-diffuse-rate
+  diffuse catabolic-hormone hormone-diffuse-rate
+  ;; if there are to many or to few hormones in an area,
+  ;; the body will try very hard to restore a balance
+  ask patches [
+    set anabolic-hormone min (list anabolic-hormone anabolic-hormone-max)
+    set anabolic-hormone max (list anabolic-hormone anabolic-hormone-min)
+    set catabolic-hormone min (list catabolic-hormone catabolic-hormone-max)
+    set catabolic-hormone max (list catabolic-hormone catabolic-hormone-min)
+    ;;color patches based on hormone concentrations
+    set pcolor approximate-rgb ((catabolic-hormone / catabolic-hormone-max) * 255)
+                   ((anabolic-hormone / anabolic-hormone-max)  * 255)
+                   0
+  ]
+end
+
+
+; Copyright 2002 Uri Wilensky.
+; See Info tab for full copyright and license.
