@@ -84,10 +84,19 @@ class MuscleModel(Model):
             self.grid.place_agent(muscle_fiber, (x, y))
             self.schedule.add(muscle_fiber)
 
+        def get_muscle_mass(model):
+            return model.muscle_mass
+
+        def get_anabolic_hormone_mean(agent):
+            return agent.anabolic_hormone_mean
+
+        def get_catabolic_hormone_mean(agent):
+            return agent.catabolic_hormone_mean
+
         self.datacollector = DataCollector(
-            model_reporters={"Muscle Mass": lambda m: m.muscle_mass,
-                             "Anabolic Hormone": lambda a: a.anabolic_hormone_mean,
-                             "Catabolic Hormone": lambda c: c.catabolic_hormone_mean}
+            model_reporters={"Muscle Mass": get_muscle_mass,
+                             "Anabolic Hormone": get_anabolic_hormone_mean,
+                             "Catabolic Hormone": get_catabolic_hormone_mean}
         )
 
     def __diffuse(self):
