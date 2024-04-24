@@ -5,6 +5,8 @@ from mesa import Agent, Model
 from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
+import time
+
 
 class MuscleFiber(Agent):
     def __init__(self, unique_id, model):
@@ -27,7 +29,6 @@ class MuscleFiber(Agent):
         if random.random() < (self.model.intensity / 100) ** 2:
             self.catabolic_hormone += math.log10(self.fiber_size) * 44
             self.anabolic_hormone += math.log10(self.fiber_size) * 55
-
 
     def sleep(self):
         self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * self.model.hours_of_sleep
@@ -53,16 +54,16 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
-    def __init__(self, width, height):
+    def __init__(self, width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers):
         super().__init__()
         self.schedule = RandomActivation(self)
 
         # Arguments that can be changed
         self.lift_weights = True
-        self.hours_of_sleep = 8
-        self.intensity = 95
-        self.days_between_workouts = 2
-        self.slow_twitch_fibers = 0.5
+        self.hours_of_sleep = hours_of_sleep
+        self.intensity = intensity
+        self.days_between_workouts = days_between_workouts
+        self.slow_twitch_fibers = slow_twitch_fibers
 
         # Constants
         self.grid = MultiGrid(width, height, True)
@@ -109,20 +110,20 @@ class MuscleModel(Model):
 
     def step(self):
         self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents)
-        self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.agents)
-        self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.agents)
+        self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.schedule.agents)
+        self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.schedule.agents)
         self.datacollector.collect(self)
 
         for a in self.schedule.agents:
             a.perform_daily_activity()
 
-        if (self.lift_weights and self._steps % self.days_between_workouts == 0):
+        if (self.lift_weights and self.schedule.time % self.days_between_workouts == 0):
             for a in self.schedule.agents:
                 a.lift_weights()
-        
+
         for a in self.schedule.agents:
             a.sleep()
-        
+
         self.__diffuse()
 
         for a in self.schedule.agents:
@@ -134,9 +135,25 @@ class MuscleModel(Model):
         self.schedule.step()
 
 
-model = MuscleModel(17, 17)
+# 模型参数
+width = 17
+height = 17
+intensity = 95
+hours_of_sleep = 8
+days_between_workouts = 2
+slow_twitch_fibers = 0.5
+
+# 模拟时间戳
+timestamp = time.strftime("%Y%m%d%H%M%S")
+
+# 创建模型
+model = MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers)
+
+# 运行模拟
 for i in range(100):
     model.step()
 
+# 生成输出文件
 model_data = model.datacollector.get_model_vars_dataframe()
-model_data.to_csv('model_data.csv')
+file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_{timestamp}.csv"
+model_data.to_csv(file_name)
