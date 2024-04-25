@@ -177,38 +177,52 @@ def run_simulation_parallel(model_instance_steps):
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    isMulti = False
+    SimulTimes = 32
+    if isMulti:
+        start_time = time.time()
 
-    # 创建模型实例列表
-    model_instances = [
-        (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _
-        in range(32)]
+        # 创建模型实例列表
+        model_instances = [
+            (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _
+            in range(SimulTimes)]
 
-    # 使用32进程并行执行模拟
-    with multiprocessing.Pool() as pool:
-        results = pool.map(run_simulation_parallel, model_instances)
+        # 使用SimulTimes进程并行执行模拟
+        with multiprocessing.Pool() as pool:
+            results = pool.map(run_simulation_parallel, model_instances)
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f"Simulation completed in {elapsed_time} seconds")
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Simulation completed in {elapsed_time} seconds")
 
-    # 生成输出文件
-    for i, result in enumerate(results):
-        file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}_{i}.csv"
-        result.to_csv(file_name)
+        # 生成输出文件
+        for i, result in enumerate(results):
+            file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}_{i}.csv"
+            result.to_csv(file_name)
 
-    # 合并多个模拟的结果
-    merged_result = pd.concat(results)
+        # 合并多个模拟的结果
+        merged_result = pd.concat(results)
 
-    # 绘制32个模拟结果的蓝色曲线
-    for result in results:
-        plt.plot(result.index, result['Muscle Mass'], 'b-', alpha=0.3)
+        # 绘制SimulTimes个模拟结果的蓝色曲线
+        for result in results:
+            plt.plot(result.index, result['Muscle Mass'], 'b-', alpha=0.3)
 
-    # 计算每个时间步的均值并绘制均值曲线
-    mean_result = merged_result.groupby(level=0).mean()
-    plt.plot(mean_result.index, mean_result['Muscle Mass'], 'r-', label='Average')
+        # 计算每个时间步的均值并绘制均值曲线
+        mean_result = merged_result.groupby(level=0).mean()
+        plt.plot(mean_result.index, mean_result['Muscle Mass'], 'r-', label='Average')
 
-    plt.xlabel('Time')
-    plt.ylabel('Muscle Mass')
-    plt.legend()
-    plt.show()
+        plt.xlabel('Time')
+        plt.ylabel('Muscle Mass')
+        plt.legend()
+        plt.show()
+    else:
+        for i in range(100):
+            model.step()
+
+        # 生成输出文件
+        model_data = model.datacollector.get_model_vars_dataframe()
+        file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_{timestamp}.csv"
+        model_data.to_csv(file_name)
+
+        # 绘制模拟结果
+        model_data.plot()
