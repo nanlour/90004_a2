@@ -1,4 +1,8 @@
 /venv
 **.csv
+**.img
+**.png
+**.jpg
+**.jpeg
 /.idea
 /__pycache__
