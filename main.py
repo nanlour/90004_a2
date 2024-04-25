@@ -5,6 +5,7 @@ from mesa import Agent, Model
 from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
+from draw import draw_plot
 
 class MuscleFiber(Agent):
     def __init__(self, unique_id, model):
@@ -27,7 +28,6 @@ class MuscleFiber(Agent):
         if random.random() < (self.model.intensity / 100) ** 2:
             self.catabolic_hormone += math.log10(self.fiber_size) * 44
             self.anabolic_hormone += math.log10(self.fiber_size) * 55
-
 
     def sleep(self):
         self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * self.model.hours_of_sleep
@@ -53,16 +53,16 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
-    def __init__(self, width, height):
+    def __init__(self, width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts, slow_twitch_fibers):
         super().__init__()
         self.schedule = RandomActivation(self)
 
         # Arguments that can be changed
-        self.lift_weights = True
-        self.hours_of_sleep = 8
-        self.intensity = 95
-        self.days_between_workouts = 2
-        self.slow_twitch_fibers = 0.5
+        self.lift_weights = lift_weights
+        self.hours_of_sleep = hours_of_sleep
+        self.intensity = intensity
+        self.days_between_workouts = days_between_workouts
+        self.slow_twitch_fibers = slow_twitch_fibers
 
         # Constants
         self.grid = MultiGrid(width, height, True)
@@ -134,9 +134,24 @@ class MuscleModel(Model):
         self.schedule.step()
 
 
-model = MuscleModel(17, 17)
-for i in range(100):
+
+simluate_time = 10000
+
+width = 17
+height = 17
+
+lift_weights = True
+hours_of_sleep = 8
+intensity = 95
+days_between_workouts = 2
+slow_twitch_fibers = 0.5
+
+
+model = MuscleModel(width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts, slow_twitch_fibers)
+for i in range(simluate_time):
     model.step()
 
 model_data = model.datacollector.get_model_vars_dataframe()
 model_data.to_csv('model_data.csv')
+
+draw_plot()
