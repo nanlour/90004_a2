@@ -7,6 +7,7 @@ from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
 from draw import draw_plot
 
+from args import args
 
 class MuscleFiber(Agent):
     def __init__(self, unique_id, model):
@@ -136,19 +137,8 @@ class MuscleModel(Model):
         self.schedule.step()
 
 
-simluate_time = 100
-
-width = 17
-height = 17
-
-lift_weights = True
-hours_of_sleep = 8
-intensity = 95
-days_between_workouts = 2
-slow_twitch_fibers = 0.5
-
-model = MuscleModel(width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts, slow_twitch_fibers)
-for i in range(simluate_time):
+model = MuscleModel(args["width"], args["height"], args["lift_weights"], args["hours_of_sleep"], args["intensity"], args["days_between_workouts"], args["slow_twitch_fibers"])
+for i in range(args["simluate_time"]):
     model.step()
 
 model_data = model.datacollector.get_model_vars_dataframe()
