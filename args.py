@@ -1,5 +1,5 @@
 args = {
-    'simluate_time' : 20000,
+    'simluate_time' : 1000,
 
     'width': 17,
     'height': 17,
@@ -9,5 +9,5 @@ args = {
     'intensity': 90,
     'days_between_workouts': 5,
     'slow_twitch_fibers': 0,
-    'nutrient': 100 #  range: [0, 100]
+    'nutrient': 24 #  range: [0, 100]
 }

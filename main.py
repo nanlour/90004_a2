@@ -56,11 +56,20 @@ class MuscleFiber(Agent):
         self.__regulate_muscle_fibers()
 
     def __grow(self):
-        fiber_size_change = 0.20 * min(math.log10(self.anabolic_hormone), 1.05 * math.log10(self.catabolic_hormone)) - 0.20 * math.log10(self.catabolic_hormone)
-        fiber_size_change = min(fiber_size_change, self.nutrient / 5000)
-        if (fiber_size_change > 0):
-            self.nutrient -= fiber_size_change * 5000
+        base_growth = 0.20 * (math.log10(self.anabolic_hormone + 1) - math.log10(self.catabolic_hormone + 1))
+
+        nutrient_offset = self.nutrient - 50
+        nutrient_factor = -0.005 * nutrient_offset  # 50时，影响为0
+
+        fiber_size_change = base_growth + nutrient_factor
+        fiber_size_change = max(fiber_size_change, -0.2 * self.fiber_size)  # 限制最大萎缩
+
+        nutrient_cost = abs(fiber_size_change) * 25  # 增加消耗量
+        nutrient_cost = min(self.nutrient, nutrient_cost)  # 限制最大消耗
+        self.nutrient -= nutrient_cost
+
         self.fiber_size += fiber_size_change
+        self.__regulate_muscle_fibers()
 
     def __regulate_muscle_fibers(self):
         self.fiber_size = max(1, self.fiber_size)
