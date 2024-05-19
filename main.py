@@ -1,5 +1,6 @@
 import math
 import random
+import numpy as np
 import pandas as pd
 from mesa import Agent, Model
 from mesa.space import MultiGrid
@@ -32,8 +33,9 @@ class MuscleFiber(Agent):
             self.anabolic_hormone += math.log10(self.fiber_size) * 55
 
     def sleep(self):
-        self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * self.model.hours_of_sleep
-        self.anabolic_hormone -= math.log10(self.anabolic_hormone) * 0.48 * self.model.hours_of_sleep
+        sleep_hours = self.model.getSleepHours()
+        self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * sleep_hours
+        self.anabolic_hormone -= math.log10(self.anabolic_hormone) * 0.48 * sleep_hours
 
     def regulate_hormones(self):
         self.anabolic_hormone = min(self.model.anabolic_hormone_max, self.anabolic_hormone)
@@ -55,27 +57,29 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
-    def __init__(self, width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts,
-                 slow_twitch_fibers):
+    def __init__(self):
         super().__init__()
         self.schedule = RandomActivation(self)
 
         # Arguments that can be changed
-        self.lift_weights = lift_weights
-        self.hours_of_sleep = hours_of_sleep
-        self.intensity = intensity
-        self.days_between_workouts = days_between_workouts
-        self.slow_twitch_fibers = slow_twitch_fibers
+        self.width = args["width"]
+        self.height = args["height"]
+        self.lift_weights = args["lift_weights"]
+        self.hours_of_sleep = args["hours_of_sleep"]
+        self.sleep_variance_range = args['sleep_variance_range']
+        self.intensity = args["intensity"]
+        self.days_between_workouts = args["days_between_workouts"]
+        self.slow_twitch_fibers = args["slow_twitch_fibers"]
 
         # Constants
-        self.grid = MultiGrid(width, height, True)
+        self.grid = MultiGrid(self.width, self.height, True)
         self.anabolic_hormone_max = 200
         self.catabolic_hormone_max = 250
         self.anabolic_hormone_min = 50
         self.catabolic_hormone_min = 52
         self.hormone_diffuse_rate = 0.75
 
-        # Imporant data
+        # Output data
         self.muscle_mass = 0
         self.anabolic_hormone_mean = 50
         self.catabolic_hormone_mean = 52
@@ -110,6 +114,12 @@ class MuscleModel(Model):
         for agent, new_value in new_values_catabolic.items():
             agent.catabolic_hormone = new_value
 
+    def getSleepHours(self):
+        sleep_hours = -1
+        while (sleep_hours < 0 or sleep_hours > self.hours_of_sleep * 2):
+            sleep_hours = np.random.normal(self.hours_of_sleep, self.sleep_variance_range / 3)
+        return sleep_hours
+
     def step(self):
         self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents)
         self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.agents)
@@ -137,7 +147,7 @@ class MuscleModel(Model):
         self.schedule.step()
 
 
-model = MuscleModel(args["width"], args["height"], args["lift_weights"], args["hours_of_sleep"], args["intensity"], args["days_between_workouts"], args["slow_twitch_fibers"])
+model = MuscleModel()
 for i in range(args["simluate_time"]):
     model.step()
 
