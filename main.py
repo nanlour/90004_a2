@@ -16,7 +16,7 @@ class MuscleFiber(Agent):
         self.max_size = 4
         self.anabolic_hormone = 50
         self.catabolic_hormone = 52
-        self.nutrient = 50
+        self.nutrient = 0
 
         for _ in range(20):
             if random.random() > self.model.slow_twitch_fibers:
