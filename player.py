@@ -3,26 +3,30 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib
+
 matplotlib.use('TkAgg')  # 修改后端为TkAgg
+
 
 # 检查目录中最新的模型数据文件
 def find_latest_model_data():
     files = os.listdir('.')
     model_data_files = [f for f in files if f.startswith('model_data') and f.endswith('.csv')]
     if model_data_files:
-        latest_model_data_file = max(model_data_files)
-        return latest_model_data_file
+        the_latest_model_data_file = max(model_data_files)
+        return the_latest_model_data_file
     else:
         return None
+
 
 # 计算切线斜率
 def calculate_slope(x_data, y_data, i):
     if i == 0:
         return 0  # 初始点，斜率为0
     else:
-        delta_x = x_data[i] - x_data[i-1]
-        delta_y = y_data[i] - y_data[i-1]
+        delta_x = x_data[i] - x_data[i - 1]
+        delta_y = y_data[i] - y_data[i - 1]
         return delta_y / delta_x
+
 
 # 计算切线端点
 def calculate_tangent_endpoints(x_data, y_data, i, slope, x_step_ratio):
@@ -31,6 +35,7 @@ def calculate_tangent_endpoints(x_data, y_data, i, slope, x_step_ratio):
     delta_x = (x_data[-1] - x_data[0]) * x_step_ratio
     delta_y = slope * delta_x
     return (x - delta_x, y - delta_y), (x + delta_x, y + delta_y)
+
 
 # 从最新的模型数据文件中加载数据
 latest_model_data_file = find_latest_model_data()
@@ -70,6 +75,7 @@ if latest_model_data_file:
         tangent_line.set_data([start_point[0], end_point[0]], [start_point[1], end_point[1]])
         slope_text.set_text(f'Slope: {slope:.2f}')  # 显示斜率
         return line, tangent_line, slope_text
+
 
     # 创建动画对象
     interval_ms = 5  # 设置播放速度为100毫秒
