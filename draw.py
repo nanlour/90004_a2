@@ -14,6 +14,7 @@ def draw_plot():
     plt.legend()
 
     plt.savefig('muscle_mass_over_time.png')
+    plt.show()  # Show the plot
 
     # Plot the hormone
     plt.figure(figsize=(15, 6))
@@ -25,5 +26,4 @@ def draw_plot():
     plt.legend()
 
     plt.savefig('hormone_levels_over_time.png')
-
-draw_plot()
+    plt.show()  # Show the plot

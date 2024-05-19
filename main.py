@@ -7,6 +7,7 @@ from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
 from draw import draw_plot
 
+
 class MuscleFiber(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
@@ -53,7 +54,8 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
-    def __init__(self, width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts, slow_twitch_fibers):
+    def __init__(self, width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts,
+                 slow_twitch_fibers):
         super().__init__()
         self.schedule = RandomActivation(self)
 
@@ -119,10 +121,10 @@ class MuscleModel(Model):
         if (self.lift_weights and self._steps % self.days_between_workouts == 0):
             for a in self.schedule.agents:
                 a.lift_weights()
-        
+
         for a in self.schedule.agents:
             a.sleep()
-        
+
         self.__diffuse()
 
         for a in self.schedule.agents:
@@ -134,8 +136,7 @@ class MuscleModel(Model):
         self.schedule.step()
 
 
-
-simluate_time = 10000
+simluate_time = 100
 
 width = 17
 height = 17
@@ -145,7 +146,6 @@ hours_of_sleep = 8
 intensity = 95
 days_between_workouts = 2
 slow_twitch_fibers = 0.5
-
 
 model = MuscleModel(width, height, lift_weights, hours_of_sleep, intensity, days_between_workouts, slow_twitch_fibers)
 for i in range(simluate_time):
