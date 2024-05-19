@@ -16,12 +16,20 @@ class MuscleFiber(Agent):
         self.max_size = 4
         self.anabolic_hormone = 50
         self.catabolic_hormone = 52
+        self.nutrient = 50
 
         for _ in range(20):
             if random.random() > self.model.slow_twitch_fibers:
                 self.max_size += 1
 
         self.fiber_size = (0.2 + random.random() * 0.4) * self.max_size
+
+    def __regulate_nutrient(self):
+        self.nutrient = min(self.model.nutrient_max, self.nutrient)
+
+    def get_nutrient(self):
+        self.nutrient += self.model.nutrient
+        self.__regulate_nutrient()
 
     def perform_daily_activity(self):
         self.catabolic_hormone += 2.0 * math.log10(self.fiber_size)
@@ -48,8 +56,11 @@ class MuscleFiber(Agent):
         self.__regulate_muscle_fibers()
 
     def __grow(self):
-        self.fiber_size -= 0.20 * math.log10(self.catabolic_hormone)
-        self.fiber_size += 0.20 * min(math.log10(self.anabolic_hormone), 1.05 * math.log10(self.catabolic_hormone))
+        fiber_size_change = 0.20 * min(math.log10(self.anabolic_hormone), 1.05 * math.log10(self.catabolic_hormone)) - 0.20 * math.log10(self.catabolic_hormone)
+        fiber_size_change = min(fiber_size_change, self.nutrient / 5000)
+        if (fiber_size_change > 0):
+            self.nutrient -= fiber_size_change * 5000
+        self.fiber_size += fiber_size_change
 
     def __regulate_muscle_fibers(self):
         self.fiber_size = max(1, self.fiber_size)
@@ -70,6 +81,7 @@ class MuscleModel(Model):
         self.intensity = args["intensity"]
         self.days_between_workouts = args["days_between_workouts"]
         self.slow_twitch_fibers = args["slow_twitch_fibers"]
+        self.nutrient = args['nutrient']
 
         # Constants
         self.grid = MultiGrid(self.width, self.height, True)
@@ -78,6 +90,7 @@ class MuscleModel(Model):
         self.anabolic_hormone_min = 50
         self.catabolic_hormone_min = 52
         self.hormone_diffuse_rate = 0.75
+        self.nutrient_max = 100
 
         # Output data
         self.muscle_mass = 0
@@ -142,6 +155,7 @@ class MuscleModel(Model):
             a.regulate_hormones()
 
         for a in self.schedule.agents:
+            a.get_nutrient()
             a.develop_muscle()
 
         self.schedule.step()
