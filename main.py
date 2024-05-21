@@ -214,7 +214,7 @@ if __name__ == "__main__":
         plt.xlabel('Time')
         plt.ylabel('Muscle Mass')
         plt.legend()
-        plt.savefig(f'muscle_mass_plot_{timestamp}.svg', format='svg')  # 保存为SVG文件
+        plt.savefig(f'muscle_mass_plot_{timestamp}.PNG', format='PNG')  # 保存为SVG文件
         plt.show()
         plt.close()
 
@@ -236,7 +236,7 @@ if __name__ == "__main__":
         plt.xlabel('Time')
         plt.ylabel('Hormone Levels')
         plt.legend()
-        plt.savefig(f'hormone_levels_plot_{timestamp}.svg', format='svg')  # 保存为SVG文件
+        plt.savefig(f'hormone_levels_plot_{timestamp}.PNG', format='PNG')  # 保存为SVG文件
         plt.show()
         plt.close()
 
