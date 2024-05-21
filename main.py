@@ -184,7 +184,8 @@ if __name__ == "__main__":
 
         # 创建模型实例列表
         model_instances = [
-            (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _
+            (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps)
+            for _
             in range(SimulTimes)]
 
         # 使用SimulTimes进程并行执行模拟
@@ -203,19 +204,44 @@ if __name__ == "__main__":
         # 合并多个模拟的结果
         merged_result = pd.concat(results)
 
-        # 绘制SimulTimes个模拟结果的蓝色曲线
+        # 绘制SimulTimes个模拟结果的肌肉质量
         for result in results:
             plt.plot(result.index, result['Muscle Mass'], 'b-', alpha=0.3)
 
-
-        # 计算每个时间步的均值并绘制均值曲线
+        # 计算肌肉质量的平均值并绘制
         mean_result = merged_result.groupby(level=0).mean()
-        plt.plot(mean_result.index, mean_result['Muscle Mass'], 'r-', label='Average')
-
+        plt.plot(mean_result.index, mean_result['Muscle Mass'], 'r-', label='Average Muscle Mass')
         plt.xlabel('Time')
         plt.ylabel('Muscle Mass')
         plt.legend()
+        plt.savefig(f'muscle_mass_plot_{timestamp}.svg', format='svg')  # 保存为SVG文件
         plt.show()
+        plt.close()
+
+        # 应用滑动平均滤波，窗口大小可以根据数据的具体情况进行调整
+        window_size = 10  # 窗口大小为10，这个值可以根据数据的波动程度调整
+        smoothed_anabolic = mean_result['Anabolic Hormone'].rolling(window=window_size, center=True).mean()
+        smoothed_catabolic = mean_result['Catabolic Hormone'].rolling(window=window_size, center=True).mean()
+
+        # 绘制SimulTimes个模拟结果的荷尔蒙水平
+        for result in results:
+            plt.plot(result.index, result['Anabolic Hormone'], 'b-', color='#8B4513', alpha=0.05)  # 褐色线
+            plt.plot(result.index, result['Catabolic Hormone'], 'b-', color='#DAA520', alpha=0.05)  # 屎黄色线
+
+        # 绘制平滑后的荷尔蒙均值曲线
+        plt.plot(smoothed_anabolic.index, smoothed_anabolic, color='#0a1413', label='Smoothed Average Anabolic Hormone')
+        plt.plot(smoothed_catabolic.index, smoothed_catabolic, color='#c95963',
+                 label='Smoothed Average Catabolic Hormone')
+
+        plt.xlabel('Time')
+        plt.ylabel('Hormone Levels')
+        plt.legend()
+        plt.savefig(f'hormone_levels_plot_{timestamp}.svg', format='svg')  # 保存为SVG文件
+        plt.show()
+        plt.close()
+
+
+
     else:
         for i in range(100):
             model.step()
