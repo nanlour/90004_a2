@@ -1,14 +1,17 @@
 import math
 import random
+
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from mesa import Agent, Model
 from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector
 from mesa.time import RandomActivation
-from draw import draw_plot
+import time
+import multiprocessing
+from scipy.optimize import curve_fit
 
-from args import args
 
 class MuscleFiber(Agent):
     def __init__(self, unique_id, model):
@@ -16,20 +19,12 @@ class MuscleFiber(Agent):
         self.max_size = 4
         self.anabolic_hormone = 50
         self.catabolic_hormone = 52
-        self.nutrient = 0
 
         for _ in range(20):
             if random.random() > self.model.slow_twitch_fibers:
                 self.max_size += 1
 
         self.fiber_size = (0.2 + random.random() * 0.4) * self.max_size
-
-    def __regulate_nutrient(self):
-        self.nutrient = min(self.model.nutrient_max, self.nutrient)
-
-    def get_nutrient(self):
-        self.nutrient += self.model.nutrient
-        self.__regulate_nutrient()
 
     def perform_daily_activity(self):
         self.catabolic_hormone += 2.0 * math.log10(self.fiber_size)
@@ -41,9 +36,8 @@ class MuscleFiber(Agent):
             self.anabolic_hormone += math.log10(self.fiber_size) * 55
 
     def sleep(self):
-        sleep_hours = self.model.getSleepHours()
-        self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * sleep_hours
-        self.anabolic_hormone -= math.log10(self.anabolic_hormone) * 0.48 * sleep_hours
+        self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * self.model.hours_of_sleep
+        self.anabolic_hormone -= math.log10(self.anabolic_hormone) * 0.48 * self.model.hours_of_sleep
 
     def regulate_hormones(self):
         self.anabolic_hormone = min(self.model.anabolic_hormone_max, self.anabolic_hormone)
@@ -56,11 +50,8 @@ class MuscleFiber(Agent):
         self.__regulate_muscle_fibers()
 
     def __grow(self):
-        fiber_size_change = 0.20 * min(math.log10(self.anabolic_hormone), 1.05 * math.log10(self.catabolic_hormone)) - 0.20 * math.log10(self.catabolic_hormone)
-        fiber_size_change = min(fiber_size_change, self.nutrient / 5000)
-        if (fiber_size_change > 0):
-            self.nutrient -= fiber_size_change * 5000
-        self.fiber_size += fiber_size_change
+        self.fiber_size -= 0.20 * math.log10(self.catabolic_hormone)
+        self.fiber_size += 0.20 * min(math.log10(self.anabolic_hormone), 1.05 * math.log10(self.catabolic_hormone))
 
     def __regulate_muscle_fibers(self):
         self.fiber_size = max(1, self.fiber_size)
@@ -68,31 +59,35 @@ class MuscleFiber(Agent):
 
 
 class MuscleModel(Model):
-    def __init__(self):
+    def get_muscle_mass(model):
+        return model.muscle_mass
+
+    def get_anabolic_hormone_mean(agent):
+        return agent.anabolic_hormone_mean
+
+    def get_catabolic_hormone_mean(agent):
+        return agent.catabolic_hormone_mean
+
+    def __init__(self, width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers):
         super().__init__()
         self.schedule = RandomActivation(self)
 
         # Arguments that can be changed
-        self.width = args["width"]
-        self.height = args["height"]
-        self.lift_weights = args["lift_weights"]
-        self.hours_of_sleep = args["hours_of_sleep"]
-        self.sleep_variance_range = args['sleep_variance_range']
-        self.intensity = args["intensity"]
-        self.days_between_workouts = args["days_between_workouts"]
-        self.slow_twitch_fibers = args["slow_twitch_fibers"]
-        self.nutrient = args['nutrient']
+        self.lift_weights = True
+        self.hours_of_sleep = hours_of_sleep
+        self.intensity = intensity
+        self.days_between_workouts = days_between_workouts
+        self.slow_twitch_fibers = slow_twitch_fibers
 
         # Constants
-        self.grid = MultiGrid(self.width, self.height, True)
+        self.grid = MultiGrid(width, height, True)
         self.anabolic_hormone_max = 200
         self.catabolic_hormone_max = 250
         self.anabolic_hormone_min = 50
         self.catabolic_hormone_min = 52
         self.hormone_diffuse_rate = 0.75
-        self.nutrient_max = 100
 
-        # Output data
+        # Imporant data
         self.muscle_mass = 0
         self.anabolic_hormone_mean = 50
         self.catabolic_hormone_mean = 52
@@ -103,9 +98,9 @@ class MuscleModel(Model):
             self.schedule.add(muscle_fiber)
 
         self.datacollector = DataCollector(
-            model_reporters={"Muscle Mass": lambda m: m.muscle_mass,
-                             "Anabolic Hormone": lambda a: a.anabolic_hormone_mean,
-                             "Catabolic Hormone": lambda c: c.catabolic_hormone_mean}
+            model_reporters={"Muscle Mass": self.get_muscle_mass,
+                             "Anabolic Hormone": self.get_anabolic_hormone_mean,
+                             "Catabolic Hormone": self.get_catabolic_hormone_mean}
         )
 
     def __diffuse(self):
@@ -127,22 +122,16 @@ class MuscleModel(Model):
         for agent, new_value in new_values_catabolic.items():
             agent.catabolic_hormone = new_value
 
-    def getSleepHours(self):
-        sleep_hours = -1
-        while (sleep_hours < 0 or sleep_hours > self.hours_of_sleep * 2):
-            sleep_hours = np.random.normal(self.hours_of_sleep, self.sleep_variance_range / 3)
-        return sleep_hours
-
     def step(self):
         self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents)
-        self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.agents)
-        self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.agents)
+        self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.schedule.agents)
+        self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.schedule.agents)
         self.datacollector.collect(self)
 
         for a in self.schedule.agents:
             a.perform_daily_activity()
 
-        if (self.lift_weights and self._steps % self.days_between_workouts == 0):
+        if (self.lift_weights and self.schedule.time % self.days_between_workouts == 0):
             for a in self.schedule.agents:
                 a.lift_weights()
 
@@ -155,17 +144,86 @@ class MuscleModel(Model):
             a.regulate_hormones()
 
         for a in self.schedule.agents:
-            a.get_nutrient()
             a.develop_muscle()
 
         self.schedule.step()
 
+    def run_simulation(self, steps):
+        for _ in range(steps):
+            self.step()
+        return self.datacollector.get_model_vars_dataframe()
 
-model = MuscleModel()
-for i in range(args["simluate_time"]):
-    model.step()
 
-model_data = model.datacollector.get_model_vars_dataframe()
-model_data.to_csv('model_data.csv')
+# 模型参数
+width = 17
+height = 17
+intensity = 95
+hours_of_sleep = 8
+days_between_workouts = 5
+slow_twitch_fibers = 0.5
+steps = 3000  # 模拟步数
 
-draw_plot()
+# 模拟时间戳
+timestamp = time.strftime("%Y%m%d%H%M%S")
+
+# 创建模型
+model = MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers)
+
+
+# 并行执行模拟
+def run_simulation_parallel(model_instance_steps):
+    model_instance, steps = model_instance_steps
+    return model_instance.run_simulation(steps)
+
+
+if __name__ == "__main__":
+    isMulti = True
+    SimulTimes = 32
+    if isMulti:
+        start_time = time.time()
+
+        # 创建模型实例列表
+        model_instances = [
+            (MuscleModel(width, height, intensity, hours_of_sleep, days_between_workouts, slow_twitch_fibers), steps) for _
+            in range(SimulTimes)]
+
+        # 使用SimulTimes进程并行执行模拟
+        with multiprocessing.Pool() as pool:
+            results = pool.map(run_simulation_parallel, model_instances)
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Simulation completed in {elapsed_time} seconds")
+
+        # 生成输出文件
+        for i, result in enumerate(results):
+            file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_steps_{steps}_{timestamp}_{i}.csv"
+            result.to_csv(file_name)
+
+        # 合并多个模拟的结果
+        merged_result = pd.concat(results)
+
+        # 绘制SimulTimes个模拟结果的蓝色曲线
+        for result in results:
+            plt.plot(result.index, result['Muscle Mass'], 'b-', alpha=0.3)
+
+
+        # 计算每个时间步的均值并绘制均值曲线
+        mean_result = merged_result.groupby(level=0).mean()
+        plt.plot(mean_result.index, mean_result['Muscle Mass'], 'r-', label='Average')
+
+        plt.xlabel('Time')
+        plt.ylabel('Muscle Mass')
+        plt.legend()
+        plt.show()
+    else:
+        for i in range(100):
+            model.step()
+
+        # 生成输出文件
+        model_data = model.datacollector.get_model_vars_dataframe()
+        file_name = f"model_data_intensity_{intensity}_sleep_{hours_of_sleep}_workout_{days_between_workouts}_fibers_{slow_twitch_fibers}_{timestamp}.csv"
+        model_data.to_csv(file_name)
+
+        # 绘制模拟结果
+        model_data.plot()
