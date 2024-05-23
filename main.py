@@ -103,9 +103,9 @@ class MuscleModel(Model):
             self.schedule.add(muscle_fiber)
 
         self.datacollector = DataCollector(
-            model_reporters={"Muscle Mass": lambda m: m.muscle_mass,
-                             "Anabolic Hormone": lambda a: a.anabolic_hormone_mean,
-                             "Catabolic Hormone": lambda c: c.catabolic_hormone_mean}
+            model_reporters={"muscle": lambda m: m.muscle_mass,
+                             "anabolic": lambda a: a.anabolic_hormone_mean,
+                             "catabolic": lambda c: c.catabolic_hormone_mean}
         )
 
     def __diffuse(self):
@@ -134,7 +134,7 @@ class MuscleModel(Model):
         return sleep_hours
 
     def step(self):
-        self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents)
+        self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents) / 100
         self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.agents)
         self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.agents)
         self.datacollector.collect(self)

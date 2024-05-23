@@ -7,9 +7,9 @@ def draw_plot():
 
     # Plot the muscle
     plt.figure(figsize=(15, 6))
-    plt.plot(df['Muscle Mass'], label='Muscle Mass')
+    plt.plot(df['muscle'], label='muscle')
     plt.xlabel('Time')
-    plt.ylabel('Muscle Mass')
+    plt.ylabel('muscle')
     plt.title('Muscle Mass over Time')
     plt.legend()
 
@@ -18,8 +18,8 @@ def draw_plot():
 
     # Plot the hormone
     plt.figure(figsize=(15, 6))
-    plt.plot(df['Anabolic Hormone'], label='Anabolic Hormone')
-    plt.plot(df['Catabolic Hormone'], label='Catabolic Hormone')
+    plt.plot(df['anabolic'], label='anabolic')
+    plt.plot(df['catabolic'], label='catabolic')
     plt.xlabel('Time')
     plt.ylabel('Hormone Level')
     plt.title('Anabolic and Catabolic Hormone Levels over Time')
