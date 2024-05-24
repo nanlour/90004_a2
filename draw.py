@@ -25,3 +25,5 @@ def draw_plot():
     plt.legend()
 
     plt.savefig('hormone_levels_over_time.png')
+
+draw_plot()

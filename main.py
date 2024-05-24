@@ -1,33 +1,26 @@
 import math
 import random
-import numpy as np
-from mesa import Agent, Model
-from mesa.space import MultiGrid
-from mesa.datacollection import DataCollector
-from mesa.time import RandomActivation
-from draw import draw_plot
 
 from args import args
 
-class MuscleFiber(Agent):
-    def __init__(self, unique_id, model):
-        super().__init__(unique_id, model)
+class MuscleFiber():
+    def __init__(self):
         self.max_size = 4
         self.anabolic_hormone = 50
         self.catabolic_hormone = 52
         self.nutrient = 0
 
         for _ in range(20):
-            if random.random() > self.model.slow_twitch_fibers:
+            if random.random() > MuscleModel.slow_twitch_fibers:
                 self.max_size += 1
 
         self.fiber_size = (0.2 + random.random() * 0.4) * self.max_size
 
     def __regulate_nutrient(self):
-        self.nutrient = min(self.model.nutrient_max, self.nutrient)
+        self.nutrient = min(MuscleModel.nutrient_max, self.nutrient)
 
     def get_nutrient(self):
-        self.nutrient += self.model.nutrient
+        self.nutrient += MuscleModel.nutrient
         self.__regulate_nutrient()
 
     def perform_daily_activity(self):
@@ -35,20 +28,20 @@ class MuscleFiber(Agent):
         self.anabolic_hormone += 2.5 * math.log10(self.fiber_size)
 
     def lift_weights(self):
-        if random.random() < (self.model.intensity / 100) ** 2:
+        if random.random() < (MuscleModel.intensity / 100) ** 2:
             self.catabolic_hormone += math.log10(self.fiber_size) * 44
             self.anabolic_hormone += math.log10(self.fiber_size) * 55
 
     def sleep(self):
-        sleep_hours = self.model.getSleepHours()
+        sleep_hours = MuscleModel.getSleepHours()
         self.catabolic_hormone -= math.log10(self.catabolic_hormone) * 0.5 * sleep_hours
         self.anabolic_hormone -= math.log10(self.anabolic_hormone) * 0.48 * sleep_hours
 
     def regulate_hormones(self):
-        self.anabolic_hormone = min(self.model.anabolic_hormone_max, self.anabolic_hormone)
-        self.anabolic_hormone = max(self.model.anabolic_hormone_min, self.anabolic_hormone)
-        self.catabolic_hormone = min(self.model.catabolic_hormone_max, self.catabolic_hormone)
-        self.catabolic_hormone = max(self.model.catabolic_hormone_min, self.catabolic_hormone)
+        self.anabolic_hormone = min(MuscleModel.anabolic_hormone_max, self.anabolic_hormone)
+        self.anabolic_hormone = max(MuscleModel.anabolic_hormone_min, self.anabolic_hormone)
+        self.catabolic_hormone = min(MuscleModel.catabolic_hormone_max, self.catabolic_hormone)
+        self.catabolic_hormone = max(MuscleModel.catabolic_hormone_min, self.catabolic_hormone)
 
     def develop_muscle(self):
         self.__grow()
@@ -66,105 +59,100 @@ class MuscleFiber(Agent):
         self.fiber_size = min(self.max_size, self.fiber_size)
 
 
-class MuscleModel(Model):
+class MuscleModel():
+    # Constants
+    anabolic_hormone_max = 200
+    catabolic_hormone_max = 250
+    anabolic_hormone_min = 50
+    catabolic_hormone_min = 52
+    hormone_diffuse_rate = 0.75
+    nutrient_max = 100
+
+    # Arguments
+    width = args["width"]
+    height = args["height"]
+    lift_weights = args["lift_weights"]
+    hours_of_sleep = args["hours_of_sleep"]
+    sleep_variance_range = args['sleep_variance_range']
+    intensity = args["intensity"]
+    days_between_workouts = args["days_between_workouts"]
+    slow_twitch_fibers = args["slow_twitch_fibers"]
+    nutrient = args['nutrient']
+
     def __init__(self):
-        super().__init__()
-        self.schedule = RandomActivation(self)
-
-        # Arguments that can be changed
-        self.width = args["width"]
-        self.height = args["height"]
-        self.lift_weights = args["lift_weights"]
-        self.hours_of_sleep = args["hours_of_sleep"]
-        self.sleep_variance_range = args['sleep_variance_range']
-        self.intensity = args["intensity"]
-        self.days_between_workouts = args["days_between_workouts"]
-        self.slow_twitch_fibers = args["slow_twitch_fibers"]
-        self.nutrient = args['nutrient']
-
-        # Constants
-        self.grid = MultiGrid(self.width, self.height, True)
-        self.anabolic_hormone_max = 200
-        self.catabolic_hormone_max = 250
-        self.anabolic_hormone_min = 50
-        self.catabolic_hormone_min = 52
-        self.hormone_diffuse_rate = 0.75
-        self.nutrient_max = 100
-
         # Output data
+        self.time = 0
         self.muscle_mass = 0
         self.anabolic_hormone_mean = 50
         self.catabolic_hormone_mean = 52
+        self.data = [["Time","muscle", "anabolic","catabolic"]]
 
-        for contents, (x, y) in self.grid.coord_iter():
-            muscle_fiber = MuscleFiber((x, y), self)
-            self.grid.place_agent(muscle_fiber, (x, y))
-            self.schedule.add(muscle_fiber)
-
-        self.datacollector = DataCollector(
-            model_reporters={"muscle": lambda m: m.muscle_mass,
-                             "anabolic": lambda a: a.anabolic_hormone_mean,
-                             "catabolic": lambda c: c.catabolic_hormone_mean}
-        )
+        self.muscle_fiber_grid = [[MuscleFiber() for _ in range(self.width)] for _ in range(self.height)]
+    
+    def __get_neighbors(self, x, y):
+        return [((y - 1) % self.height, (x - 1) % self.width), ((y - 1) % self.height, x), ((y - 1) % self.height, (x + 1) % self.width), ((y + 1) % self.height, (x - 1) % self.width), ((y + 1) % self.height, x), ((y + 1) % self.height, (x + 1) % self.width), (y, (x - 1) % self.width), (y, (x + 1) % self.width)]
 
     def __diffuse(self):
-        new_values_anabolic = {agent: 0 for agent in self.schedule.agents}
-        new_values_catabolic = {agent: 0 for agent in self.schedule.agents}
+        new_values_anabolic = [[0 for _ in range(self.width)] for _ in range(self.height)]
+        new_values_catabolic = [[0 for _ in range(self.width)] for _ in range(self.height)]
 
-        for agent in self.schedule.agents:
-            count = len(list(self.grid.get_neighbors(agent.pos, moore=True)))
-            new_values_anabolic[agent] += agent.anabolic_hormone * (1 - self.hormone_diffuse_rate)
-            new_values_catabolic[agent] += agent.catabolic_hormone * (1 - self.hormone_diffuse_rate)
+        for y in range(self.height):
+            for x in range(self.width):
+                new_values_anabolic[y][x] += self.muscle_fiber_grid[y][x].anabolic_hormone * (1 - self.hormone_diffuse_rate)
+                new_values_catabolic[y][x] += self.muscle_fiber_grid[y][x].catabolic_hormone * (1 - self.hormone_diffuse_rate)
 
-            for neighbor in self.grid.get_neighbors(agent.pos, moore=True):
-                new_values_anabolic[neighbor] += agent.anabolic_hormone * self.hormone_diffuse_rate / count
-            for neighbor in self.grid.get_neighbors(agent.pos, moore=True):
-                new_values_catabolic[neighbor] += agent.catabolic_hormone * self.hormone_diffuse_rate / count
+                for y_, x_ in self.__get_neighbors(x, y):
+                    new_values_anabolic[y_][x_] += self.muscle_fiber_grid[y][x].anabolic_hormone * self.hormone_diffuse_rate / 8
+                    new_values_catabolic[y_][x_] += self.muscle_fiber_grid[y][x].catabolic_hormone * self.hormone_diffuse_rate / 8
 
-        for agent, new_value in new_values_anabolic.items():
-            agent.anabolic_hormone = new_value
-        for agent, new_value in new_values_catabolic.items():
-            agent.catabolic_hormone = new_value
+        for y in range(self.height):
+            for x in range(self.width):
+                self.muscle_fiber_grid[y][x].anabolic_hormone = new_values_anabolic[y][x]
+                self.muscle_fiber_grid[y][x].catabolic_hormone = new_values_catabolic[y][x]
 
-    def getSleepHours(self):
-        sleep_hours = -1
-        while (sleep_hours < 0 or sleep_hours > self.hours_of_sleep * 2):
-            sleep_hours = np.random.normal(self.hours_of_sleep, self.sleep_variance_range / 3)
+    def getSleepHours():
+        sleep_hours = random.uniform(MuscleModel.hours_of_sleep - MuscleModel.sleep_variance_range, MuscleModel.hours_of_sleep + MuscleModel.sleep_variance_range)
         return sleep_hours
 
     def step(self):
-        self.muscle_mass = sum(a.fiber_size for a in self.schedule.agents) / 100
-        self.catabolic_hormone_mean = sum(a.catabolic_hormone for a in self.schedule.agents) / len(self.agents)
-        self.anabolic_hormone_mean = sum(a.anabolic_hormone for a in self.schedule.agents) / len(self.agents)
-        self.datacollector.collect(self)
+        self.muscle_mass = sum(muscle_fiber.fiber_size for row in self.muscle_fiber_grid for muscle_fiber in row) / 100
+        self.catabolic_hormone_mean = sum(muscle_fiber.catabolic_hormone for row in self.muscle_fiber_grid for muscle_fiber in row) / (self.height * self.width)
+        self.anabolic_hormone_mean = sum(muscle_fiber.anabolic_hormone for row in self.muscle_fiber_grid for muscle_fiber in row) / (self.height * self.width)
+        self.data.append([self.time, self.muscle_mass, self.anabolic_hormone_mean, self.catabolic_hormone_mean])
+        self.time += 1
 
-        for a in self.schedule.agents:
-            a.perform_daily_activity()
+        for y in range(self.height):
+            for x in range(self.width):
+                self.muscle_fiber_grid[y][x].perform_daily_activity()
 
-        if (self.lift_weights and self._steps % self.days_between_workouts == 0):
-            for a in self.schedule.agents:
-                a.lift_weights()
+        if (self.lift_weights and self.time % self.days_between_workouts == 0):
+            for y in range(self.height):
+                for x in range(self.width):
+                    self.muscle_fiber_grid[y][x].lift_weights()
 
-        for a in self.schedule.agents:
-            a.sleep()
+        for y in range(self.height):
+            for x in range(self.width):
+                self.muscle_fiber_grid[y][x].sleep()
 
         self.__diffuse()
 
-        for a in self.schedule.agents:
-            a.regulate_hormones()
+        for y in range(self.height):
+            for x in range(self.width):
+                self.muscle_fiber_grid[y][x].regulate_hormones()
 
-        for a in self.schedule.agents:
-            a.get_nutrient()
-            a.develop_muscle()
-
-        self.schedule.step()
+        for y in range(self.height):
+            for x in range(self.width):
+                self.muscle_fiber_grid[y][x].get_nutrient()
+                self.muscle_fiber_grid[y][x].develop_muscle()
 
 
 model = MuscleModel()
 for i in range(args["simluate_time"]):
     model.step()
 
-model_data = model.datacollector.get_model_vars_dataframe()
-model_data.to_csv('model_data.csv')
+filename = "model_data.csv"
 
-draw_plot()
+with open(filename, 'w') as file:
+    for row in model.data:
+        str_row = [str(item) for item in row]
+        file.write(','.join(str_row) + '\n')
