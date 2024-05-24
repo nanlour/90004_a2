@@ -119,7 +119,6 @@ class MuscleModel():
         self.catabolic_hormone_mean = sum(muscle_fiber.catabolic_hormone for row in self.muscle_fiber_grid for muscle_fiber in row) / (self.height * self.width)
         self.anabolic_hormone_mean = sum(muscle_fiber.anabolic_hormone for row in self.muscle_fiber_grid for muscle_fiber in row) / (self.height * self.width)
         self.data.append([self.time, self.muscle_mass, self.anabolic_hormone_mean, self.catabolic_hormone_mean])
-        self.time += 1
 
         for y in range(self.height):
             for x in range(self.width):
@@ -144,6 +143,8 @@ class MuscleModel():
             for x in range(self.width):
                 self.muscle_fiber_grid[y][x].get_nutrient()
                 self.muscle_fiber_grid[y][x].develop_muscle()
+
+        self.time += 1
 
 
 model = MuscleModel()
