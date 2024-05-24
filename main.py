@@ -89,6 +89,14 @@ class MuscleModel():
 
         self.muscle_fiber_grid = [[MuscleFiber() for _ in range(self.width)] for _ in range(self.height)]
     
+    def generate_normal(mean, std_dev):
+        u1 = random.random()
+        u2 = random.random()
+
+        z = math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
+
+        return mean + z * std_dev
+    
     def __get_neighbors(self, x, y):
         return [((y - 1) % self.height, (x - 1) % self.width), ((y - 1) % self.height, x), ((y - 1) % self.height, (x + 1) % self.width), ((y + 1) % self.height, (x - 1) % self.width), ((y + 1) % self.height, x), ((y + 1) % self.height, (x + 1) % self.width), (y, (x - 1) % self.width), (y, (x + 1) % self.width)]
 
@@ -111,7 +119,9 @@ class MuscleModel():
                 self.muscle_fiber_grid[y][x].catabolic_hormone = new_values_catabolic[y][x]
 
     def getSleepHours():
-        sleep_hours = random.uniform(MuscleModel.hours_of_sleep - MuscleModel.sleep_variance_range, MuscleModel.hours_of_sleep + MuscleModel.sleep_variance_range)
+        sleep_hours = -1
+        while (sleep_hours < 0 or sleep_hours > MuscleModel.hours_of_sleep * 2):
+            sleep_hours = MuscleModel.generate_normal(MuscleModel.hours_of_sleep, MuscleModel.sleep_variance_range / 3)
         return sleep_hours
 
     def step(self):
